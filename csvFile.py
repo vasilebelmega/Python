@@ -3,7 +3,7 @@ from collections import Counter, defaultdict, OrderedDict
 counter = 0
 entries = []
 duplicate_entries = []
-
+#comment
 with open('C:\\Users\\vasile.belmega\\Desktop\\projects\\python\\FullDatasetResult.csv','r') as csv_file:
 	for row in csv_file:
 		columns = row.strip().split(',')
