@@ -1,94 +1,57 @@
-import mysql.connector
+import boto3
 from http.server import BaseHTTPRequestHandler, HTTPServer
-import random
-import os
+import json
+import uuid
 
-# Database connection details
-DB_HOST = os.getenv("DB_HOST")  
-DB_PORT = 3306
-DB_USER = "admin"  # Replace with your RDS username
-DB_PASSWORD = "Fizyfangs97."  # Replace with your RDS password
-DB_NAME = "meetings_db"  # Database name
+# Initialize the DynamoDB client
+dynamodb = boto3.resource('dynamodb', region_name='us-east-1')  # Replace with your region
+table_name = "meetings_table"
+table = dynamodb.Table(table_name)
 
-print(f"Connecting to database at {DB_HOST}...")
-# Create a connection to the database
+# Function to add sample data to DynamoDB
 def setup_database():
     try:
-        connection = mysql.connector.connect(
-            host=DB_HOST,
-            port=DB_PORT,
-            user=DB_USER,
-            password=DB_PASSWORD
-        )
-        cursor = connection.cursor()
+        # Add sample meetings to the DynamoDB table
+        meetings = [
+            {"id": str(uuid.uuid4()), "day_of_week": "Monday", "meeting": "Team Sync"},
+            {"id": str(uuid.uuid4()), "day_of_week": "Tuesday", "meeting": "Project Update"},
+            {"id": str(uuid.uuid4()), "day_of_week": "Wednesday", "meeting": "Client Call"},
+            {"id": str(uuid.uuid4()), "day_of_week": "Thursday", "meeting": "Code Review"},
+            {"id": str(uuid.uuid4()), "day_of_week": "Friday", "meeting": "Planning Session"}
+        ]
 
-        # Create the database if it doesn't exist
-        cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_NAME}")
-        cursor.execute(f"USE {DB_NAME}")
+        for meeting in meetings:
+            table.put_item(Item=meeting)
 
-        # Create the table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS meetings (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                day_of_week VARCHAR(20),
-                meeting VARCHAR(255)
-            )
-        """)
+        print("Sample data added to DynamoDB.")
+    except Exception as e:
+        print(f"Error setting up database: {e}")
 
-        # Insert random meetings for working days
-        days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-        meetings = ["Team Sync", "Project Update", "Client Call", "Code Review", "Planning Session"]
-
-        for day in days_of_week:
-            meeting = random.choice(meetings)
-            cursor.execute("INSERT INTO meetings (day_of_week, meeting) VALUES (%s, %s)", (day, meeting))
-
-        connection.commit()
-        print("Database setup complete and data inserted.")
-    except mysql.connector.Error as err:
-        print(f"Error: {err}")
-    finally:
-        if connection.is_connected():
-            cursor.close()
-            connection.close()
-
+# HTTP request handler
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
-            # Connect to the database
-            connection = mysql.connector.connect(
-                host=DB_HOST,
-                port=DB_PORT,
-                user=DB_USER,
-                password=DB_PASSWORD,
-                database=DB_NAME
-            )
-            cursor = connection.cursor()
-
-            # Fetch all meetings
-            cursor.execute("SELECT day_of_week, meeting FROM meetings")
-            rows = cursor.fetchall()
+            # Fetch all meetings from DynamoDB
+            response = table.scan()
+            items = response.get('Items', [])
 
             # Build the HTML response
-            response = "<html><body><h1>Meetings Schedule</h1><ul>"
-            for row in rows:
-                response += f"<li>{row[0]}: {row[1]}</li>"
-            response += "</ul></body></html>"
+            html_response = "<html><body><h1>Meetings Schedule</h1><ul>"
+            for item in items:
+                html_response += f"<li>{item['day_of_week']}: {item['meeting']}</li>"
+            html_response += "</ul></body></html>"
 
             # Send the response
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()
-            self.wfile.write(response.encode())
-        except mysql.connector.Error as err:
+            self.wfile.write(html_response.encode())
+        except Exception as e:
             self.send_response(500)
             self.end_headers()
-            self.wfile.write(f"Error: {err}".encode())
-        finally:
-            if connection.is_connected():
-                cursor.close()
-                connection.close()
+            self.wfile.write(f"Error: {e}".encode())
 
+# Run the HTTP server
 def run(server_class=HTTPServer, handler_class=SimpleHTTPRequestHandler):
     setup_database()  # Set up the database before starting the server
     server_address = ('0.0.0.0', 80)
@@ -96,5 +59,5 @@ def run(server_class=HTTPServer, handler_class=SimpleHTTPRequestHandler):
     print("Starting server on port 80...")
     httpd.serve_forever()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run()
