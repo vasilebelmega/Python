@@ -4,7 +4,7 @@ import json
 import uuid
 
 # Initialize the DynamoDB client
-dynamodb = boto3.resource('dynamodb', region_name='us-east-1')  # Replace with your region
+dynamodb = boto3.resource('dynamodb', region_name='eu-north-1')  # Replace with your region
 table_name = "meetings_table"
 table = dynamodb.Table(table_name)
 
@@ -54,9 +54,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 # Run the HTTP server
 def run(server_class=HTTPServer, handler_class=SimpleHTTPRequestHandler):
     setup_database()  # Set up the database before starting the server
-    server_address = ('0.0.0.0', 80)
+    server_address = ('0.0.0.0', 8080)
     httpd = server_class(server_address, handler_class)
-    print("Starting server on port 80...")
+    print("Starting server on port 8080...")
     httpd.serve_forever()
 
 if __name__ == "__main__":
