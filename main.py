@@ -54,9 +54,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 # Run the HTTP server
 def run(server_class=HTTPServer, handler_class=SimpleHTTPRequestHandler):
     setup_database()  # Set up the database before starting the server
-    server_address = ('0.0.0.0', 8080)
+    server_address = ('0.0.0.0', 8081)
     httpd = server_class(server_address, handler_class)
-    print("Starting server on port 8080...")
+    print("Starting server on port 8081...")
     httpd.serve_forever()
 
 if __name__ == "__main__":
