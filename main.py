@@ -91,9 +91,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 def run(server_class=HTTPServer, handler_class=SimpleHTTPRequestHandler):
     setup_database()  # Set up the database before starting the server
-    server_address = ('0.0.0.0', 5000)
+    server_address = ('0.0.0.0', 80)
     httpd = server_class(server_address, handler_class)
-    print("Starting server on port 5000...")
+    print("Starting server on port 80...")
     httpd.serve_forever()
 
 if __name__ == '__main__':
