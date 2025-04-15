@@ -2,22 +2,52 @@ import boto3
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import uuid
+from datetime import datetime, timedelta
 
 # Initialize the DynamoDB client
 dynamodb = boto3.resource('dynamodb', region_name='eu-north-1')  # Replace with your region
 table_name = "meetings_table"
 table = dynamodb.Table(table_name)
 
+# Function to get the current day of the week
+def get_current_day():
+    return datetime.now().strftime("%A")  # Returns the full name of the current day (e.g., "Monday")
+
+# Function to get the days of the current week starting from today
+def get_week_days():
+    current_day = datetime.now().weekday()  # Monday is 0, Sunday is 6
+    week_days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    return week_days[current_day:] + week_days[:current_day]  # Rotate the list to start from today
+
+# Function to delete old entries from DynamoDB
+def clean_old_entries():
+    try:
+        # Fetch all items from the table
+        response = table.scan()
+        items = response.get('Items', [])
+
+        # Get the valid days for the current week
+        valid_days = get_week_days()
+
+        # Delete items that are not in the valid days
+        for item in items:
+            if item['day_of_week'] not in valid_days:
+                table.delete_item(Key={'id': item['id']})
+                print(f"Deleted old entry: {item}")
+    except Exception as e:
+        print(f"Error cleaning old entries: {e}")
+
 # Function to add sample data to DynamoDB
 def setup_database():
     try:
-        # Add sample meetings to the DynamoDB table
+        # Clean old entries first
+        clean_old_entries()
+
+        # Add sample meetings for the current week
+        valid_days = get_week_days()
         meetings = [
-            {"id": str(uuid.uuid4()), "day_of_week": "Monday", "meeting": "Team Sync"},
-            {"id": str(uuid.uuid4()), "day_of_week": "Tuesday", "meeting": "Project Update"},
-            {"id": str(uuid.uuid4()), "day_of_week": "Wednesday", "meeting": "Client Call"},
-            {"id": str(uuid.uuid4()), "day_of_week": "Thursday", "meeting": "Code Review"},
-            {"id": str(uuid.uuid4()), "day_of_week": "Friday", "meeting": "Planning Session"}
+            {"id": str(uuid.uuid4()), "day_of_week": day, "meeting": f"Meeting on {day}", "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+            for day in valid_days
         ]
 
         for meeting in meetings:
@@ -38,7 +68,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             # Build the HTML response
             html_response = "<html><body><h1>Meetings Schedule</h1><ul>"
             for item in items:
-                html_response += f"<li>{item['day_of_week']}: {item['meeting']}</li>"
+                html_response += f"<li>{item['day_of_week']} ({item['timestamp']}): {item['meeting']}</li>"
             html_response += "</ul></body></html>"
 
             # Send the response
