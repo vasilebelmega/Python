@@ -2,32 +2,48 @@ import boto3
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # Initialize the DynamoDB client
 dynamodb = boto3.resource('dynamodb', region_name='eu-north-1')  # Replace with your region
 table_name = "meetings_table"
 table = dynamodb.Table(table_name)
 
-# Function to clean old entries from DynamoDB
-def clean_old_entries():
+# Function to delete all entries from DynamoDB
+def delete_all_entries():
     try:
-        # Fetch all items from the table
+        # Scan the table to get all items
         response = table.scan()
         items = response.get('Items', [])
 
-        # Get today's date
-        today = datetime.now().strftime("%Y-%m-%d")
-
-        # Delete items older than today
+        # Delete each item
         for item in items:
-            if 'timestamp' in item:
-                item_date = datetime.strptime(item['timestamp'], "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
-                if item_date < today:
-                    table.delete_item(Key={'id': item['id']})
-                    print(f"Deleted old entry: {item}")
+            table.delete_item(Key={'id': item['id']})
+            print(f"Deleted entry: {item}")
     except Exception as e:
-        print(f"Error cleaning old entries: {e}")
+        print(f"Error deleting entries: {e}")
+
+# Function to add sample data to DynamoDB
+def setup_database():
+    try:
+        # Delete all existing entries first
+        delete_all_entries()
+
+        # Add sample meetings to the DynamoDB table
+        meetings = [
+            {"id": str(uuid.uuid4()), "day_of_week": "Monday", "meeting": "Team Sync"},
+            {"id": str(uuid.uuid4()), "day_of_week": "Tuesday", "meeting": "Project Update"},
+            {"id": str(uuid.uuid4()), "day_of_week": "Wednesday", "meeting": "Client Call"},
+            {"id": str(uuid.uuid4()), "day_of_week": "Thursday", "meeting": "Code Review"},
+            {"id": str(uuid.uuid4()), "day_of_week": "Friday", "meeting": "Planning Session"}
+        ]
+
+        for meeting in meetings:
+            table.put_item(Item=meeting)
+
+        print("Sample data added to DynamoDB.")
+    except Exception as e:
+        print(f"Error setting up database: {e}")
 
 # Function to add a new meeting to DynamoDB
 def add_meeting(day_of_week, meeting_name):
@@ -47,9 +63,6 @@ def add_meeting(day_of_week, meeting_name):
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
-            # Clean old entries before displaying
-            clean_old_entries()
-
             # Fetch all meetings from DynamoDB
             response = table.scan()
             items = response.get('Items', [])
@@ -111,6 +124,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 # Run the HTTP server
 def run(server_class=HTTPServer, handler_class=SimpleHTTPRequestHandler):
+    setup_database()  # Set up the database before starting the server
     server_address = ('0.0.0.0', 8081)
     httpd = server_class(server_address, handler_class)
     print("Starting server on port 8081...")
